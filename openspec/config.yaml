@@ -1,0 +1,64 @@
+# OpenSpec project config for the SDD harness.
+#
+# Durable home of the pipeline's spec-quality and collaboration rules: this
+# file survives `openspec update` regeneration and is consumed by
+# `openspec instructions <artifact>` during the one-artifact-at-a-time flow.
+#
+# Baseline: @fission-ai/openspec >= 1.9.0, OPSX workflow. Install the custom
+# profile with all 12 workflows (core: propose, explore, apply, update, sync,
+# archive; expanded: new, continue, ff, verify, bulk-archive, onboard) — a
+# narrower global profile makes `openspec update` drop the expanded commands.
+
+schema: spec-driven
+
+context: |
+  The S1/S2/S3 review gates are human because planning is a collaborative
+  design, not an agent monologue.
+
+  Before authoring `proposal`, `specs`, `design`, or an ADR, brainstorm with
+  the user: explore what already exists for the concepts involved, ask
+  clarifying questions one at a time, propose 2-3 approaches with trade-offs,
+  present the design in sections, and get the user's approval on every
+  decision that affects scope, domain model, behavior, or architecture. The
+  artifacts record decisions the engineer made — never decisions you made for
+  them.
+
+  Review boundaries hold regardless of how artifacts are created. The combined
+  S1+S2 review happens when design is ready and must be recorded as
+  `signoff.architecture` before tasks authoring; `signoff.tasks` must be
+  recorded before implementation. One-artifact-at-a-time continuation, and the
+  `propose`/`ff` shortcuts, must not bypass them.
+
+  These rules live here because `openspec update` regenerates the workflow
+  command files and drops anything appended to them. This config survives.
+
+  Spec detail: the Binary Test is the floor, not the ceiling. Each criterion's
+  scenarios must be specific enough that a fresh agent implements exactly the
+  intended behavior — named entities, exact values and tolerances, precise
+  trigger and response. If a decision is still open, go back to the user.
+
+rules:
+  proposal:
+    - 'Collaborate with the user before authoring: explore the existing material for the concepts involved, ask clarifying questions one at a time, propose 2-3 approaches with trade-offs, and get approval on every decision affecting scope, domain model, behavior, or architecture.'
+    - Record the engineer-approved intent and non-goals. Do not author a proposal that records a decision the engineer has not made.
+  specs:
+    - Write acceptance criteria in EARS or Given-When-Then. Scenarios are the executable contract — they must be verifiable without the author present.
+    - 'Apply the Binary Test: for every criterion ask "could two agents disagree on whether this passes?"; if yes, rewrite it until the answer is no.'
+    - Keep each task-sized slice at 3-7 acceptance criteria; no mega-specs; one change folder per feature.
+    - 'Delta spec format: use `## ADDED Requirements`, `## MODIFIED Requirements`, or `## REMOVED Requirements` sections; each requirement is a `### Requirement:` block whose scenarios are `#### Scenario:` blocks with `WHEN`/`THEN` steps (or Given/When/Then).'
+    - 'Every delta spec references the ADRs that govern it (a path under the configured adr_dir, or `ADR-<n>`).'
+  design:
+    - 'Collaborate with the user before authoring: get approval on every decision affecting the architecture before writing the artifact.'
+    - 'Every governing decision becomes an ADR under the configured adr_dir. The design documents the engineer-approved architecture derived from the domain model.'
+  tasks:
+    - 'Write `tasks.md` with concise technical prose covering dependencies, interfaces, invariants, failure modes, and tests; include only critical snippets. Do not include comprehensive code, shell commands, expected output, or commit instructions.'
+    - 'Each `- [ ]` or `- [x]` task block, up to the next checkbox, contains at least one non-empty applicable anchor bullet from the vocabulary: `Domain:` / `Event contract:` / `Rule:` / `ADR:` / `Infra:` / `Tests:`. Do not add inapplicable categories merely to fill out a template.'
+
+# Optional per-operation guidance (advisory only, separate from the rules above).
+operations:
+  apply:
+    # Must be a LIST of strings. OpenSpec silently ignores a block scalar here
+    # ("Guidance for operation 'apply' must be an array of strings").
+    guidance:
+      - 'Write applied summaries and notes in plain English: main point first, one idea per sentence, direct active sentences, one term per concept, no filler.'
+      - Be concise without dropping information needed to understand or act.

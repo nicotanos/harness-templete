@@ -1,0 +1,143 @@
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/workflow_gate.py 1>&2 || exit 0",
+            "timeout": 180,
+            "statusMessage": "SDD gate: probing pipeline state"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec new change *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S0 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S1 requires S0 (gap report) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec instructions proposal *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S0 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S1 authoring requires S0 (gap report) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec instructions specs *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S0 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S1 authoring requires S0 (gap report) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec instructions design *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S1 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S2 authoring requires S1 (domain-spec) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec instructions tasks *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S2 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S3 authoring requires S2 (architecture review) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec instructions apply *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S3 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S4 requires S3 (tasks) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec validate --specs *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S5 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S5 (verification) must be DONE before syncing specs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(openspec archive *)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/hook_gate.py --stage S6 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S6 gate must pass before archive"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Skill(openspec-verify-change)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/workflow_gate.py --stage S4 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S5 requires S4 (implement) DONE"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Skill(opsx:verify)",
+            "command": "PY=$(command -v python3 || command -v python) || exit 0; \"$PY\" scripts/workflow_gate.py --stage S4 1>&2 || exit 2",
+            "timeout": 180,
+            "statusMessage": "SDD gate: S5 requires S4 (implement) DONE"
+          }
+        ]
+      }
+    ]
+  }
+}

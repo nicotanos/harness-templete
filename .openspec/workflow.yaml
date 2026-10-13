@@ -1,0 +1,170 @@
+# Per-stage review policy for the SDD pipeline. The OpenSpec artifact DAG
+# remains authoritative for artifact names and status transitions; this file
+# adds the review policy, the repo layout, and the coding-flow guardrails
+# enforced by scripts/workflow_gate.py.
+
+schema_version: "1.0"
+
+workflow:
+  id: sdd-pipeline
+  name: "Artifact-Enforced SDD Pipeline — gate layer"
+  version: "1.1.0"
+  description: Per-stage review policy, repo layout, and coding-flow guardrails.
+
+requires:
+  openspec_version: ">=1.9.0"
+  pyyaml: ">=6.0"
+
+stage_index:
+  S0: intake
+  S1: domain-spec
+  S2: architecture
+  S3: tasks
+  S4: implement
+  S5: verify
+  S6: archive
+  S7: compound
+
+# `none` stages proceed from artifact checks alone; human/agent stages also
+# require an approved stage record in the change's .openspec.yaml.
+stages:
+  intake:        { review: none }
+  domain-spec:   { review: none }
+  architecture:  { review: human }
+  tasks:         { review: human }
+  implement:     { review: none }
+  verify:        { review: none }
+  archive:       { review: human }
+  compound:      { review: none }
+
+# ------------------------------------------------------------------------------
+# Repo layout — every path the gate touches, so adopting the harness is a YAML
+# edit rather than a source edit. Paths are relative to the repo root and use
+# forward slashes on every platform. Omit a key to accept the default shown.
+# ------------------------------------------------------------------------------
+paths:
+  # Transient stage reports (gap report, verification report). Add this
+  # directory to .gitignore — the reports are deleted after archive.
+  pipeline_dir: .pipeline
+  gap_report: gap-report.md
+  verification_report: verification-report.md
+  # Where OpenSpec keeps change folders. The archive is <changes_dir>/archive.
+  changes_dir: openspec/changes
+  # Architecture Decision Records. Stage 2 requires at least one file here and
+  # a reference to an ADR from every delta spec.
+  adr_dir: docs/adr
+
+# ------------------------------------------------------------------------------
+# Knowledge base — OPT-IN. When disabled (the default), stages S1 and S7 check
+# their artifacts alone and the pipeline runs fully without a knowledge base.
+# When enabled, the validator must pass for S1 (new pages) and S7 (whole KB).
+# ------------------------------------------------------------------------------
+kb:
+  enabled: false
+  root: docs
+  validator: scripts/kb_validate.py
+
+# ------------------------------------------------------------------------------
+# Coding flow — Stage 4 (implement) autonomy level. The same gate script and
+# the same verification surface apply in all three flows; only the human/agent
+# checkpoints inside Stage 4 change. Stage 5 always runs — autonomy reduces
+# review gates, never verification.
+#
+#   standard    1 checkpoint  — plan review before coding (ordinary features)
+#   validate    2 checkpoints — design + plan review (security, payments,
+#                               regulated data, core architecture)
+#   autonomous  0 checkpoints — code and test straight through (bug fixes,
+#                               trivial or low-risk changes)
+#
+# Flow choice is engineer judgment; there is no automated risk classifier.
+# ------------------------------------------------------------------------------
+coding_flow:
+  default: standard
+  allowed: [standard, validate, autonomous]
+
+# ------------------------------------------------------------------------------
+# Review vocabulary — shared by `stages` and per-change overrides.
+# ------------------------------------------------------------------------------
+review:
+  values: [none, human, agent]
+
+guardrails:
+  review:
+    # Stages that may never drop to `review: none`.
+    none_forbidden: [archive]
+  recording:
+    required: true
+    locations: [change .openspec.yaml]
+
+# ------------------------------------------------------------------------------
+# On-the-fly overrides.
+# Precedence: per-change .openspec.yaml > this file's defaults. The gate script
+# merges the change file over these defaults and validates the result against
+# the review vocabulary and guardrails above.
+# ------------------------------------------------------------------------------
+overrides:
+  defaults_from: .openspec/workflow.yaml
+  change_file: <changes_dir>/<name>/.openspec.yaml
+  # Top-level keys the gate script reads from the change file and merges.
+  keys: [stages, coding_flow]
+  # Example change-level override (bugfix: delegated review, no checkpoints):
+  #   schema: spec-driven
+  #   created: 2026-08-13
+  #   stages:
+  #     implement: { review: agent }
+  #   coding_flow: autonomous
+  # OpenSpec reads its own known keys from the change file (schema,
+  # skip_specs, retire_capabilities) and ignores the rest; the custom keys
+  # pass through as plain YAML for the gate script.
+  agent_initiated:
+    # The agent may propose a mid-flight override (e.g. "this is a bugfix,
+    # switching to autonomous"). It takes effect only once recorded — the same
+    # rule as change-level overrides.
+    allowed: true
+    requires_recording: true
+  record:
+    required: true
+    fields: [key, after, by, when]
+
+# ------------------------------------------------------------------------------
+# Backward flow (revision). Gates prevent skipping FORWARD (proceeding without
+# required artifacts), never revisiting. Revision is a first-class state
+# transition and the primary source of compound learnings.
+# ------------------------------------------------------------------------------
+backward_flow:
+  enabled: true
+  forward_states: [BLOCKED, READY, DONE]
+  revision_transitions:
+    - [DONE, READY]        # revise a completed stage
+    - [READY, BLOCKED]     # an input artifact was removed
+  revalidation: downstream-only
+  # Dependency-scoped: a backward jump re-validates ONLY artifacts downstream
+  # of what changed — correcting one business rule does not re-run the
+  # pipeline. Native in OpenSpec: /opsx:update revises proposal / design /
+  # delta specs / tasks in any direction, at any time; /opsx:apply resumes
+  # implementation where it left off.
+  update_vs_fresh: |
+    Refine in place when intent is unchanged and the revision narrows scope
+    (e.g. fix a rule, correct an ADR). Open a NEW change folder when intent
+    changes or scope explodes (>50% scope-overlap test).
+  recording:
+    required: true
+    locations: [change log]
+
+# ------------------------------------------------------------------------------
+# Gate semantics — what the gate script checks before a stage may proceed.
+# ------------------------------------------------------------------------------
+gates:
+  # Per-stage gate = artifact condition (the OpenSpec artifact graph via
+  # `openspec status --change <name> --json`) AND, for review-gated stages,
+  # the review sign-off record (who/what/when) in the change folder.
+  artifact_condition:
+    source: openspec status --change <name> --json
+    states: [BLOCKED, READY, DONE]
+  review_condition:
+    # Sign-off is required for stages whose effective review policy is human
+    # or agent; `none` stages have no review record requirement.
+    signoff_required: [human, agent]
+  reject_behavior: revision
+  # A rejected review sends the stage back (DONE -> READY) with the rejection
+  # recorded — it is revision input, not an abort.

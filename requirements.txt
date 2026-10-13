@@ -1,0 +1,9 @@
+# SDD harness — Python dependencies for scripts/workflow_gate.py and the
+# optional scripts/kb_validate.py.
+#
+#   python3 -m pip install -r requirements.txt
+#
+# CI must install these too. Without PyYAML the gate cannot start, and every
+# PreToolUse hook fails closed (exit 2) while the Stop hook fails open — a
+# confusing half-broken state that looks like a harness bug.
+pyyaml>=6.0

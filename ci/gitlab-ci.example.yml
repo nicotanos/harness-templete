@@ -1,0 +1,25 @@
+# GitLab CI equivalent of .github/workflows/sdd.yml. Include it from your
+# top-level .gitlab-ci.yml:
+#
+#   include:
+#     - local: ci/gitlab-ci.example.yml
+
+sdd:
+  stage: test
+  image: node:20-bookworm-slim
+  before_script:
+    # The gate shells out to the openspec CLI to resolve changes, so both
+    # runtimes belong in the same job. Splitting them makes the gate step fail
+    # with "openspec CLI not found on PATH".
+    - apt-get update -qq && apt-get install -y --no-install-recommends python3 python3-pip
+      && rm -rf /var/lib/apt/lists/*
+    - python3 -m pip install --quiet --break-system-packages -r requirements.txt pytest
+    - npm install -g @fission-ai/openspec
+  script:
+    - python3 -m pytest scripts/tests -q
+    # Reports the first stage that is not DONE; exits 0 when nothing is in flight.
+    - python3 scripts/workflow_gate.py
+    - openspec validate --all
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

@@ -1,0 +1,11 @@
+# SDD harness — transient stage reports (paths.pipeline_dir in
+# .openspec/workflow.yaml). Written during a run, deleted after
+# `openspec archive`; a leftover verification report blocks the idle gate.
+.pipeline/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
